@@ -524,6 +524,11 @@ input {
   line-height: 1.55;
 }
 
+.warning-text {
+  color: var(--paint-deep);
+  font-weight: 700;
+}
+
 .result-badges,
 .averages-board {
   display: grid;

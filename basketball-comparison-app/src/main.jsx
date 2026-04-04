@@ -69,6 +69,10 @@ const ALL_TIME_PLAYERS = [
 ];
 
 const NBA_REPRESENTATIVE_PLAYERS = [
+  { name: "Festus Ezeli", emoji: "🪫", era: "NBA low-output comp", archetype: "Limited backup big", stats: { points: 4.0, rebounds: 5.4, assists: 0.4, steals: 0.3, blocks: 1.1, threes: 0.0, turnovers: 0.8, fouls: 2.3, fgPct: 54.8, ftPct: 53.1 } },
+  { name: "Ron Baker", emoji: "🧊", era: "NBA low-output comp", archetype: "End-of-rotation guard", stats: { points: 4.1, rebounds: 1.8, assists: 1.6, steals: 0.5, blocks: 0.2, threes: 0.5, turnovers: 0.6, fouls: 1.2, fgPct: 40.2, ftPct: 77.0 } },
+  { name: "Tyler Ulis", emoji: "🪶", era: "NBA low-output comp", archetype: "Small reserve playmaker", stats: { points: 7.5, rebounds: 1.6, assists: 3.7, steals: 0.9, blocks: 0.1, threes: 0.7, turnovers: 1.4, fouls: 1.7, fgPct: 42.1, ftPct: 84.9 } },
+  { name: "Tony Snell", emoji: "🫥", era: "NBA low-output comp", archetype: "Low-touch floor spacer", stats: { points: 6.1, rebounds: 2.3, assists: 1.1, steals: 0.4, blocks: 0.2, threes: 1.3, turnovers: 0.5, fouls: 1.7, fgPct: 43.1, ftPct: 82.0 } },
   { name: "Matisse Thybulle", emoji: "🕷️", era: "NBA low-usage comp", archetype: "Defense-first wing", stats: { points: 4.4, rebounds: 2.0, assists: 1.2, steals: 1.2, blocks: 0.7, threes: 0.8, turnovers: 0.5, fouls: 1.7, fgPct: 43.8, ftPct: 66.9 } },
   { name: "Andre Roberson", emoji: "🔒", era: "NBA low-usage comp", archetype: "Defensive stopper", stats: { points: 4.5, rebounds: 3.9, assists: 1.0, steals: 1.0, blocks: 0.5, threes: 0.3, turnovers: 0.6, fouls: 1.9, fgPct: 48.9, ftPct: 46.7 } },
   { name: "Tony Allen", emoji: "🐺", era: "NBA low-usage comp", archetype: "Perimeter disruptor", stats: { points: 8.1, rebounds: 3.5, assists: 1.3, steals: 1.7, blocks: 0.4, threes: 0.2, turnovers: 1.1, fouls: 2.4, fgPct: 47.5, ftPct: 58.2 } },
@@ -165,6 +169,9 @@ function computeSimilarity(playerStats, userAverages) {
 }
 
 function buildArchetypeSummary(averages) {
+  if (STAT_FIELDS.every((field) => averages[field.key] === 0)) {
+    return "Only way is up from here.";
+  }
   if (averages.points >= 27 && averages.threes >= 2.5) {
     return "High-volume scoring creator with real perimeter pressure.";
   }
@@ -276,38 +283,15 @@ function isGoatProfile(averages) {
   return absurdCountingStats || absurdEfficiency;
 }
 
-function pickDisplayComparisons(comparisons, averages, gamesCount) {
-  const veryLowProfile =
-    averages.points <= 8 &&
-    averages.rebounds <= 6 &&
-    averages.assists <= 4;
-  const lowerProfile =
-    averages.points < 18 &&
-    averages.rebounds < 7 &&
-    averages.assists < 6;
-
-  if ((!lowerProfile && !veryLowProfile) || comparisons.length <= 1) {
-    return comparisons;
-  }
-
-  const candidateCount = Math.min(veryLowProfile ? 4 : 3, comparisons.length);
-  const seed = Math.round(
-    averages.points * 11 +
-      averages.rebounds * 7 +
-      averages.assists * 5 +
-      gamesCount * 3,
-  );
-  const chosenIndex = Math.abs(seed) % candidateCount;
-  const chosen = comparisons[chosenIndex];
-  const rest = comparisons.filter((player) => player.name !== chosen.name);
-
-  return [chosen, ...rest];
+function hasAnyEnteredStats(form) {
+  return STAT_FIELDS.some((field) => String(form[field.key]).trim() !== "");
 }
 
 function App() {
   const [games, setGames] = useState(loadSavedGames);
   const [form, setForm] = useState(() => ({ opponent: "", ...emptyForm() }));
   const [copied, setCopied] = useState(false);
+  const [formWarning, setFormWarning] = useState("");
   const groupedFields = groupFieldsByCategory();
 
   const deferredGames = useDeferredValue(games);
@@ -316,9 +300,7 @@ function App() {
   const goatProfile = isGoatProfile(averages);
   const comparisonPool = chooseComparisonPool(averages);
   const rankedComparisons = profileReady && !goatProfile ? getTopComparisons(averages, comparisonPool) : [];
-  const comparisons = goatProfile
-    ? [GOAT_PROFILE]
-    : pickDisplayComparisons(rankedComparisons, averages, deferredGames.length);
+  const comparisons = goatProfile ? [GOAT_PROFILE] : rankedComparisons;
   const bestMatch = goatProfile ? GOAT_PROFILE : comparisons[0];
   const runnerUp = goatProfile ? null : comparisons[1];
   const strengths = getStrengths(averages);
@@ -331,12 +313,14 @@ function App() {
 
   const handleChange = (key, value) => {
     startTransition(() => {
+      setFormWarning("");
       setForm((current) => ({ ...current, [key]: value }));
     });
   };
 
   const handleTemplateClick = (template) => {
     startTransition(() => {
+      setFormWarning("");
       setForm((current) => ({
         ...current,
         opponent: current.opponent || template.label,
@@ -348,6 +332,11 @@ function App() {
   const handleSubmit = (event) => {
     event.preventDefault();
 
+    if (!hasAnyEnteredStats(form)) {
+      setFormWarning("Add at least one stat before saving a game.");
+      return;
+    }
+
     const nextGame = {
       id: Date.now(),
       opponent: form.opponent.trim() || `Game ${games.length + 1}`,
@@ -358,6 +347,7 @@ function App() {
       setGames((current) => [nextGame, ...current]);
       setForm({ opponent: "", ...emptyForm() });
       setCopied(false);
+      setFormWarning("");
     });
   };
 
@@ -517,6 +507,8 @@ Averages: ${STAT_FIELDS.map((field) => `${field.shortLabel} ${formatStat(average
               ))}
             </div>
 
+            {formWarning ? <p className="helper warning-text">{formWarning}</p> : null}
+
             <div className="action-row">
               <button className="submit-button" onClick={handleSubmit} type="button">
                 Add Game
@@ -576,7 +568,7 @@ Averages: ${STAT_FIELDS.map((field) => `${field.shortLabel} ${formatStat(average
                   <div className="result-emoji">💩</div>
                   <div>
                     <div className="output-text">No comparison yet.</div>
-                    <p className="helper">Null or empty stats cannot match a legend. Add a real stat line to unlock the comp.</p>
+                    <p className="helper">Only way is up from here. Add a real stat line to unlock your first player comp.</p>
                   </div>
                 </div>
               </>
