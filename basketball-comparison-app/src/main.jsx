@@ -389,7 +389,6 @@ Averages: ${STAT_FIELDS.map((field) => `${field.shortLabel} ${formatStat(average
 
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">Basketball / All-Time Matchup</p>
           <h1>Ballulator</h1>
           <p className="lede">
             A court-side tracker that turns your game log into running averages, then stacks them against legends or more realistic NBA-level comps depending on your stat profile.
